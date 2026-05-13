@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == request.auth.uid 
+          && data.username is string && data.username.size() >= 3 && data.username.size() <= 30
+          && data.email is string
+          && (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+          && (data.bio == null || (data.bio is string && data.bio.size() <= 500))
+          && (data.techStack == null || data.techStack is list)
+          && (data.rankingPoints == null || data.rankingPoints is number);
+      }
+
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // In a social app, profiles are public once signed in
+      
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
+      
+      allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'bio', 'avatarUrl', 'githubUrl', 'techStack', 'updatedAt']);
+      
+      // System updates like rankingPoints would usually be via Cloud Functions
+      // but for this applet we might allow some client-side logic if it's a demo
+    }
+
+    // 2. Posts Collection
+    match /posts/{postId} {
+      function isValidPost(data) {
+        return data.authorId == request.auth.uid
+          && data.content is string && data.content.size() <= 5000
+          && (data.codeSnippet == null || (data.codeSnippet is string && data.codeSnippet.size() <= 10000))
+          && data.createdAt == request.time;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidPost(incoming());
+      allow update: if isSignedIn() && isOwner(existing().authorId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'codeSnippet', 'language', 'updatedAt'])
+        && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && isOwner(existing().authorId);
+    }
+
+    // 3. Projects Collection
+    match /projects/{projectId} {
+      function isValidProject(data) {
+        return data.authorId == request.auth.uid
+          && data.title is string && data.title.size() >= 1 && data.title.size() <= 100
+          && data.description is string && data.description.size() <= 2000;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidProject(incoming());
+      allow update: if isSignedIn() && isOwner(existing().authorId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'imageUrl', 'githubRepo', 'demoUrl', 'techStack']);
+      allow delete: if isSignedIn() && isOwner(existing().authorId);
+    }
+
+    // 4. ChatRooms Collection
+    match /chatRooms/{roomId} {
+      allow read: if isSignedIn() && request.auth.uid in existing().participants;
+      allow create: if isSignedIn() && request.auth.uid in incoming().participants;
+      allow update: if isSignedIn() && request.auth.uid in existing().participants
+        && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt']);
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(roomId)).data.participants;
+        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(roomId)).data.participants
+          && incoming().senderId == request.auth.uid;
+      }
+    }
+
+    // 5. Follows Collection
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().followerId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().followerId == request.auth.uid;
+    }
+
+    // 6. Notifications Collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && isOwner(existing().recipientId);
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(existing().recipientId) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+    }
+  }
+}

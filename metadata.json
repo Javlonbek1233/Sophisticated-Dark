@@ -1,0 +1,9 @@
+{
+  "name": "DevConnect AI",
+  "description": "A futuristic developer social media platform featuring AI-powered code reviews, project showcases, and real-time collaboration with a hacker-style aesthetic.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

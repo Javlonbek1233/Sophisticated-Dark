@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neon-cyan: #00F5FF;
+  --color-neon-purple: #BD00FF;
+  --color-neon-pink: #FF00E5;
+  --color-dark-bg: #050505;
+  --color-glass: rgba(255, 255, 255, 0.05);
+
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-dark-bg text-gray-100 font-sans antialiased selection:bg-neon-cyan/30;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl shadow-2xl;
+  }
+  
+  .neon-border {
+    @apply border border-neon-cyan/50 shadow-[0_0_15px_rgba(0,245,255,0.2)];
+  }
+
+  .neon-button {
+    @apply relative overflow-hidden px-6 py-2 rounded-lg font-mono text-sm transition-all
+           bg-transparent border border-neon-cyan text-neon-cyan
+           hover:bg-neon-cyan hover:text-black hover:shadow-[0_0_20px_rgba(0,245,255,0.4)];
+  }
+
+  .neon-text-glow {
+    @apply text-neon-cyan drop-shadow-[0_0_8px_rgba(0,245,255,0.8)];
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* Animated Neon Gradient Background */
+.neon-gradient-bg {
+  background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #050505 100%);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+}
+
+.neon-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  pointer-events: none;
+}
